@@ -1,9 +1,8 @@
 #include "MyBugAlgorithm.h"
 // Implement your methods in the `.cpp` file, for example:
 amp::Path2D MyBug1Algorithm::plan(const amp::Problem2D& problem) {
-    // Your algorithm solves the problem and generates a path. Here is a hard-coded to path for now...
     // Set step size
-    double step_size = 0.05;
+    double forward_hand = 0.07;
     double step_multiply = 0.1;
     double angle_step = 0.05;
     double angle_multiply = 10;
@@ -12,75 +11,67 @@ amp::Path2D MyBug1Algorithm::plan(const amp::Problem2D& problem) {
     amp::Path2D path;
     Eigen::Vector2d current_position = problem.q_init;
     Eigen::Vector2d previous_position = problem.q_init;
-    Eigen::Vector2d initial_forward(step_size,0);
-    Eigen::Vector2d initial_forward_right = Eigen::Rotation2Dd(-M_PI/4) * Eigen::Vector2d(step_size,0);
-    Eigen::Vector2d initial_right = Eigen::Rotation2Dd(-M_PI/2) * Eigen::Vector2d(step_size*1.4,0);
-    Eigen::Vector2d forward;
-    Eigen::Vector2d forward_right;
-    Eigen::Vector2d right;
-    Eigen::Vector2d step_forward;
-    Eigen::Rotation2Dd rot;
+    LeftTurningBugEsential left_turning_bug_esential(forward_hand, forward_hand*1.2, step_multiply, 0);
     Eigen::Vector2d hit_point;
     Eigen::Vector2d leave_point;
     double old_angle;
 
     // Determine initial orientation
     Eigen::Vector2d to_goal = problem.q_goal - problem.q_init;
-    double angle = atan2(to_goal(1),to_goal(0));
-    rot = Eigen::Rotation2Dd(angle);
-    forward = rot * initial_forward;
-    forward_right = rot * initial_forward_right;
-    right = rot * initial_right;
-    step_forward = forward*step_multiply;
+    double initial_angle = atan2(to_goal(1),to_goal(0));
+    left_turning_bug_esential.increase_angle(initial_angle);
 
     // Initial location
     path.waypoints.push_back(problem.q_init);
 
+    // Start timer
     auto t1 = std::chrono::high_resolution_clock::now();
     while(true){
-        if (check_timeout(t1)){LOG("1");return path;}
+        if (check_timeout(t1)){LOG("1");return path;} // Timeout
+
         // Move towards goal until collision
-        while((!check_collision(problem, current_position + forward)) && (current_position - problem.q_goal).norm() > 0.1){
+        while((!check_collision(problem, current_position + left_turning_bug_esential.forward)) 
+              && (current_position - problem.q_goal).norm() > 0.1){
             if (check_timeout(t1)){LOG("2");return path;}
             previous_position = current_position;
-            current_position += step_forward;
+            current_position += left_turning_bug_esential.step_forward;
         }
+
         // Reached goal
         if ((current_position - problem.q_goal).norm() <= 0.1){
             break; // Reached goal
         }
+
         // Collision
         path.waypoints.push_back(current_position);
+
+        // Path to go back to leave point
         amp::Path2D temp_path_memory;
         amp::Path2D temp_path_1;
         amp::Path2D temp_path_2;
         temp_path_1.waypoints.push_back(current_position);
         temp_path_memory.waypoints.push_back(current_position);
-        // LOG("reach obstacle");
 
-        // Reposition angle
-        while(check_collision(problem, current_position + forward) || !check_collision(problem, current_position + right)){
+        // Reposition to angle to circumnavigate obstacle
+        while(check_collision(problem, current_position + left_turning_bug_esential.forward) 
+              || !check_collision(problem, current_position + left_turning_bug_esential.right)){
             if (check_timeout(t1)){LOG("3");return path;}
-            // LOG(check_collision(problem, current_position + forward));
-            angle += angle_step;
-            rot = Eigen::Rotation2Dd(angle);
-            forward = rot * initial_forward;
-            forward_right = rot * initial_forward_right;
-            right = rot * initial_right;
-            step_forward = forward*step_multiply;
+            left_turning_bug_esential.increase_angle(angle_step);
         }
 
         // Circumnavigate obstacle
-        old_angle = angle;
+        old_angle = left_turning_bug_esential.angle;
         hit_point = current_position;
         leave_point = current_position;
         bool right_turn = 0;
-        while(abs(angle-old_angle) < 2*M_PI-1 || (current_position - hit_point).norm() > 0.1){
-            if (check_timeout(t1)){LOG("4");return path;}
+        while(abs(left_turning_bug_esential.angle-old_angle) < 2*M_PI-1 || (current_position - hit_point).norm() > 0.1){
+            if (check_timeout(t1)){LOG("4");return path;} // Timeout
 
             previous_position = current_position;
-            current_position += step_forward;
-            if(!check_collision(problem, current_position + right)){
+            current_position += left_turning_bug_esential.step_forward;
+
+            // if did not touch obstacle, move back and turn right
+            if(!check_collision(problem, current_position + left_turning_bug_esential.right)){
                 current_position = previous_position;
                 if(!right_turn){
                     path.waypoints.push_back(current_position);
@@ -88,43 +79,37 @@ amp::Path2D MyBug1Algorithm::plan(const amp::Problem2D& problem) {
                     temp_path_memory.waypoints.push_back(current_position);
                 }
 
-                current_position += right + Eigen::Rotation2Dd(-angle_step*angle_multiply) * (-right);
+                // turn around right point
+                current_position += left_turning_bug_esential.right + Eigen::Rotation2Dd(-angle_step*angle_multiply) * (-left_turning_bug_esential.right);
                 path.waypoints.push_back(current_position);
                 temp_path_2.waypoints.push_back(current_position);
                 temp_path_memory.waypoints.push_back(current_position);
 
-                angle -= angle_step * angle_multiply;
-                rot = Eigen::Rotation2Dd(angle);
-                forward = rot * initial_forward;
-                forward_right = rot * initial_forward_right;
-                right = rot * initial_right;
-                step_forward = forward*step_multiply;
+                left_turning_bug_esential.increase_angle(-angle_step * angle_multiply);
 
                 right_turn = 1;
             }
+
             bool first_time = 1;
-            while((check_collision(problem, current_position + forward_right)||check_collision(problem, current_position + forward))|| !check_collision(problem, current_position + right)){
-                if (check_timeout(t1)){LOG("5");return path;}
-                // LOG("new:");
-                // LOG(check_collision(problem, current_position + forward_right));
-                // LOG(check_collision(problem, current_position + right));
+            // while front or front_right is blocked, or right is free, turn left
+            while(check_collision(problem, current_position + left_turning_bug_esential.forward_right)||
+                  check_collision(problem, current_position + left_turning_bug_esential.forward) || 
+                  !check_collision(problem, current_position + left_turning_bug_esential.right)){
+                if (check_timeout(t1)){LOG("5");return path;} // Timeout
+
+                // store path if turn left for the first time
                 if(first_time){
                     path.waypoints.push_back(current_position);
                     temp_path_2.waypoints.push_back(current_position);
                     temp_path_memory.waypoints.push_back(current_position);
                     first_time = 0;
                 }
-
-                angle += angle_step;
-                rot = Eigen::Rotation2Dd(angle);
-                forward = rot * initial_forward;
-                forward_right = rot * initial_forward_right;
-                right = rot * initial_right;
-                step_forward = forward*step_multiply;
-                
+                left_turning_bug_esential.increase_angle(angle_step);
                 right_turn = 0;
+                // LOG(left_turning_bug_esential.forward_right);
             }
 
+            // check if it is closer to goal, and update leave point if so
             if((current_position - problem.q_goal).norm() < (leave_point - problem.q_goal).norm()){
                 temp_path_1.waypoints = temp_path_memory.waypoints;
                 temp_path_1.waypoints.push_back(current_position);
@@ -149,14 +134,9 @@ amp::Path2D MyBug1Algorithm::plan(const amp::Problem2D& problem) {
         current_position = leave_point;
 
         to_goal = problem.q_goal - leave_point;
-        angle = atan2(to_goal(1),to_goal(0));
-        rot = Eigen::Rotation2Dd(angle);
-        forward = rot * initial_forward;
-        forward_right = rot * initial_forward_right;
-        right = rot * initial_right;
-        step_forward = forward*step_multiply;
+        left_turning_bug_esential.set_angle(atan2(to_goal(1),to_goal(0)));
 
-        if (check_collision(problem, current_position + forward)){
+        if (check_collision(problem, current_position + left_turning_bug_esential.forward)){
             LOG("Stuck in obstacle!");
             return path; // Stuck in obstacle
         }
@@ -176,11 +156,38 @@ bool MyBug1Algorithm::check_reach_hit(Eigen::Vector2d hit_point, Eigen::Vector2d
 }
 
 amp::Path2D MyBug2Algorithm::plan(const amp::Problem2D& problem) {
-    // Your algorithm solves the problem and generates a path. Here is a hard-coded to path for now...
+    // set step size
+    const double step_size = 0.05;
+    const double step_multiply = 0.1;
+    const double angle_step = 0.05;
+    const double angle_multiply = 10;
+
+    // set up initial variables
     amp::Path2D path;
     path.waypoints.push_back(problem.q_init);
+    Eigen::Vector2d current_position = problem.q_init;
+    Eigen::Vector2d initial_forward(0.1,0);
+    Eigen::Vector2d initial_forward_right = Eigen::Rotation2Dd(-M_PI/4) * initial_forward;
+    Eigen::Vector2d initial_right = Eigen::Rotation2Dd(-M_PI/2) * initial_forward*1.2;
+    Eigen::Vector2d forward;
+    Eigen::Vector2d forward_right;
+    Eigen::Vector2d right;
+    Eigen::Vector2d step_forward;
+    double angle;
+    double old_angle;
+    Eigen::Rotation2Dd rot;
+
+    // Determine goal line
     const double goal_slope = (problem.q_goal(1)-problem.q_init(1))/(problem.q_goal(0)-problem.q_init(0));
     const double goal_intercept = problem.q_init(1)-goal_slope*problem.q_init(0);
+    const Eigen::Vector2d goal_direction = (problem.q_goal - problem.q_init).normalized();
+    const double angle_to_goal = atan2(goal_direction(1),goal_direction(0));
+
+    // Initial Reorientation
+    angle = angle_to_goal;
+    rot = Eigen::Rotation2Dd(angle);
+    
+
 
     // Move towards goal until collision
     
@@ -233,4 +240,36 @@ bool MyBugAlgorithm::check_collision(const amp::Problem2D& problem, Eigen::Vecto
         return true; // Point is inside this obstacle
     }
     return false; // Point is outside all polygons
+}
+
+LeftTurningBugEsential::LeftTurningBugEsential(double forward_hand, double right_hand, double input_step_multiply, double input_angle){
+    initial_forward = Eigen::Vector2d(forward_hand, 0);
+    initial_forward_right = Eigen::Rotation2Dd(-M_PI/4)*initial_forward;
+    initial_right = Eigen::Vector2d(0, -right_hand);
+
+    angle = input_angle;
+    step_multiply = input_step_multiply;
+    rot = Eigen::Rotation2Dd(angle);
+    forward = rot * initial_forward;
+    forward_right = rot * initial_forward_right;
+    right = rot * initial_right;
+    step_forward = forward*step_multiply;
+}
+
+void LeftTurningBugEsential::increase_angle(double incremental){
+    angle += incremental;
+    rot = Eigen::Rotation2Dd(angle);
+    forward = rot * initial_forward;
+    forward_right = rot * initial_forward_right;
+    right = rot * initial_right;
+    step_forward = forward*step_multiply;
+}
+
+void LeftTurningBugEsential::set_angle(double input_angle){
+    angle = input_angle;
+    rot = Eigen::Rotation2Dd(angle);
+    forward = rot * initial_forward;
+    forward_right = rot * initial_forward_right;
+    right = rot * initial_right;
+    step_forward = forward*step_multiply;
 }
