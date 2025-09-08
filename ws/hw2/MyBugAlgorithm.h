@@ -43,10 +43,11 @@ class MyBug1Algorithm : public MyBugAlgorithm {
     
     private:
         bool check_reach_hit(Eigen::Vector2d hit_point, Eigen::Vector2d current_position, double old_angle, double angle);
+        LeftTurningBugEsential left_turning_bug_esential();
         // Add any member variables here...
 };
 
-class MyBug2Algorithm : public amp::BugAlgorithm {
+class MyBug2Algorithm : public MyBugAlgorithm {
     public:
         // Override and implement the bug algorithm in the plan method. The methods are declared here in the `.h` file
         virtual amp::Path2D plan(const amp::Problem2D& problem) override;

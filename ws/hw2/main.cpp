@@ -16,10 +16,10 @@ int main(int argc, char** argv) {
     /*    Randomly generate the problem     */ 
 
     // Use WO1 from Exercise 2
-    // Problem2D problem = HW2::getWorkspace1();
+    Problem2D problem = HW2::getWorkspace1();
 
     // Use WO1 from Exercise 2
-    Problem2D problem = HW2::getWorkspace2();
+    // Problem2D problem = HW2::getWorkspace2();
 
     // Make a random environment spec, edit properties about it such as the number of obstacles
     /*
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
     */
 
     // Declare your algorithm object 
-    MyBug1Algorithm algo;
+    MyBug2Algorithm algo;
     
     {
         // Call your algorithm on the problem
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
         // Visualizer::makeFigure(random_prob, path, collision_points);
     }
 
-    Visualizer::saveFigures(true, "hw2_figs");
+    // Visualizer::saveFigures(true, "hw2_figs");
 
 
     HW2::grade(algo, "yuko3324@colorado.edu", argc, argv);
