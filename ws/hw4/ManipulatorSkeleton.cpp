@@ -251,7 +251,7 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
         }
         
         // case 1 that not work
-        if (end_base_distant<link2_ir){
+        if (end_base_distant+getLinkLengths()[2]<link2_ir){
             return joint_angles;
         }
 
@@ -268,6 +268,8 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
             goto end_function;
             // return joint_angles;
         }
+        LOG(end_base_distant);
+        LOG(link2_or);
 
         return joint_angles;
     } else {
