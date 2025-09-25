@@ -3,7 +3,7 @@
 amp::Path2D MyBug1Algorithm::plan(const amp::Problem2D& problem) {
     // Set step size
     double forward_hand = 0.07;
-    double step_multiply = 0.1;
+    double step_multiply = 0.10;
     double angle_step = 0.05;
     double angle_multiply = 10;
 
