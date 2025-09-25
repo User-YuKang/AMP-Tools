@@ -28,6 +28,86 @@ amp::ManipulatorState MyManipulator2D::getConfiguration2link(const Eigen::Vector
     return joint_angles;
 }
 
+Eigen::Vector2d MyManipulator2D::possibleJointLocation(double r1, double r2, double linklength, const Eigen::Vector2d& end_effector_location) const{
+    double end_base_distant = (end_effector_location - getBaseLocation()).norm();
+    Eigen::Vector2d joint_location = Eigen::Vector2d(0.0, 0.0);
+
+    bool intersect_outer_circle = ((end_base_distant <= r2 + linklength) && (end_base_distant >= abs(r2 - linklength)));
+    bool intersect_inner_circle = ((end_base_distant <= r1 + linklength) && (end_base_distant >= abs(r1 - linklength)));
+
+    // intersect with both inner outer
+    if (intersect_outer_circle && intersect_inner_circle){
+        LOG("case 1");
+        Eigen::Vector2d outer_intersect = circlesIntersect(getBaseLocation(), r2, end_effector_location, linklength);
+        Eigen::Vector2d inner_intersect = circlesIntersect(getBaseLocation(), r1, end_effector_location, linklength);
+        double theta = 0;
+        Eigen::Rotation2Dd rot;
+
+        double angle_different_1 = abs(outer_intersect[0]-inner_intersect[0]);
+        double angle_different_2 = abs(outer_intersect[0]-inner_intersect[1]);
+
+        bool angle_1_changed = false;
+        bool angle_2_changed = false;
+
+        if(2*M_PI-angle_different_1 < angle_different_1){
+            angle_different_1 = 2*M_PI-angle_different_1;
+            angle_1_changed = true;
+        }
+        if(2*M_PI-angle_different_2 < angle_different_2){
+            angle_different_2 = 2*M_PI-angle_different_2;
+            angle_2_changed = true;
+        }
+
+
+        if (angle_different_1 <= angle_different_2){
+            if (angle_1_changed){
+                theta = -M_PI;
+            }
+            theta += (outer_intersect[0] + inner_intersect[0])/2 + M_PI;
+        }else{
+            if (angle_2_changed){
+                theta = -M_PI;
+            }
+            theta += (outer_intersect[0] + inner_intersect[1])/2 + M_PI;
+        }
+        rot = Eigen::Rotation2Dd(theta);
+        
+        joint_location = end_effector_location - rot*Eigen::Vector2d(linklength,0);
+        return joint_location;
+
+    }
+    
+    // only intersect with outer circle
+    if (intersect_outer_circle){
+        LOG("case 2");
+        Eigen::Vector2d end2base = (getBaseLocation() - end_effector_location).normalized();
+        joint_location = end_effector_location + end2base*linklength;
+        return joint_location;
+    }
+
+    // only intersect with inner circle
+    if (intersect_inner_circle){
+        LOG("case 3");
+        Eigen::Vector2d base2end = (end_effector_location-getBaseLocation()).normalized();
+        joint_location = end_effector_location + base2end*linklength;
+        return joint_location;
+    }
+    
+    // case 1 that not work
+    if (end_base_distant<r1){
+        return joint_location;
+    }
+
+    // anything works
+    if (end_base_distant<r2){
+        LOG("case 4");
+        joint_location = end_effector_location - Eigen::Vector2d(linklength,0);
+        return joint_location;
+    }
+
+    return joint_location;
+}
+
 Eigen::Vector2d MyManipulator2D::circlesIntersect(const Eigen::Vector2d& circle1, const double circle1Radius, const Eigen::Vector2d& circle2, const double circle2Radius) const {
     double d = sqrt(pow(circle1[0]-circle2[0],2) + pow(circle1[1]-circle2[1],2));
     double l = (pow(circle1Radius,2)-pow(circle2Radius,2)+pow(d,2))/(2*d);
@@ -134,7 +214,8 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
             joint_angles[0] = first2Configuration[0];
             joint_angles[1] = first2Configuration[1];
             joint_angles[2] = theta - first2Configuration[0] - first2Configuration[1];
-            return joint_angles;
+            goto end_function;
+            // return joint_angles;
         }
         
         // only intersect with outer circle
@@ -149,7 +230,8 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
             joint_angles[0] = first2Configuration[0];
             joint_angles[1] = first2Configuration[1];
             joint_angles[2] = theta-first2Configuration[1]-first2Configuration[0];
-            return joint_angles;
+            goto end_function;
+            // return joint_angles;
         }
 
         // only intersect with inner circle
@@ -164,7 +246,8 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
             joint_angles[0] = first2Configuration[0];
             joint_angles[1] = first2Configuration[1];
             joint_angles[2] = theta-first2Configuration[1]-first2Configuration[0];
-            return joint_angles;
+            goto end_function;
+            // return joint_angles;
         }
         
         // case 1 that not work
@@ -181,8 +264,9 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
             joint_angles[0] = first2Configuration[0];
             joint_angles[1] = first2Configuration[1];
             joint_angles[2] = - first2Configuration[0] -first2Configuration[1];
-            return joint_angles;
-            return joint_angles;
+
+            goto end_function;
+            // return joint_angles;
         }
 
         return joint_angles;
@@ -191,5 +275,11 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
         return joint_angles;
     }
 
+    return joint_angles;
+
+    end_function:
+    for (int i = 0; i < nLinks(); i++){
+        joint_angles[i] = joint_angles[i] - 2*M_PI*floor((joint_angles[i] + M_PI)/(2*M_PI));
+    }
     return joint_angles;
 }

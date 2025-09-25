@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 }
 
     // Create the collision space constructor
-    std::size_t n_cells = 500;
+    std::size_t n_cells = 100;
     MyManipulatorCSConstructor cspace_constructor(n_cells);
 
     // Create the collision space using a given manipulator and environment
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
         }
     }
     Visualizer::makeFigure(ws);
-    Visualizer::saveFigures(true, "hw4_figs");
+    // Visualizer::saveFigures(true, "hw4_figs");
 
     // HW4::checkCSpace(*cspace, manipulator, HW4::getEx3Workspace3(), 500, true);
 
