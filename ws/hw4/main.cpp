@@ -18,13 +18,13 @@ int main(int argc, char** argv) {
     amp::RNG::seed(amp::RNG::randiUnbounded());
 
     {
-    // MyManipulator2D manipulator_1(std::vector<double>{1.0, 1.0}); 
+    MyManipulator2D manipulator_1(std::vector<double>{1.0, 1.0}); 
 
     // // You can visualize your manipulator given an angle state like so:
-    // amp::ManipulatorState test_state;
-    // test_state.resize(2);
-    // test_state = Eigen::Vector2d(M_PI, M_PI);
-    // Eigen::Vector2d end_effector= manipulator_1.getJointLocation(test_state, 2);
+    amp::ManipulatorState test_state;
+    test_state.resize(2);
+    test_state = Eigen::Vector2d(4.0, 0.0);
+    Eigen::Vector2d end_effector= manipulator_1.getJointLocation(test_state, 2);
     // LOG(end_effector);
 
     // The visualizer uses your implementation of forward kinematics to show the joint positions so you can use that to test your FK algorithm
@@ -40,19 +40,31 @@ int main(int argc, char** argv) {
 }
 
     // Create the collision space constructor
-    std::size_t n_cells = 1000;
+    std::size_t n_cells = 500;
     MyManipulatorCSConstructor cspace_constructor(n_cells);
 
     // Create the collision space using a given manipulator and environment
     MyManipulator2D manipulator(std::vector<double>{1.0, 1.0});
-    std::unique_ptr<amp::GridCSpace2D> cspace = cspace_constructor.construct(manipulator, HW4::getEx3Workspace1());
+    std::unique_ptr<amp::GridCSpace2D> cspace = cspace_constructor.construct(manipulator, HW4::getEx3Workspace3());
 
     // You can visualize your cspace 
     Visualizer::makeFigure(*cspace);
 
+    
+
+    std::unique_ptr<MyGridCSpace2D> ws_ptr = std::make_unique<MyGridCSpace2D>(n_cells, n_cells, -3, 3, -3, 3);
+    MyGridCSpace2D& ws = *ws_ptr;
+    for(int i = 1; i < n_cells; i++){
+        for(int j = 1; j < n_cells; j++){
+            ws(i, j) = cspace_constructor.check_collision(HW4::getEx3Workspace3(), Eigen::Vector2d(-3+6*double(i)/n_cells, -3+6*double(j)/n_cells));
+        }
+    }
+    Visualizer::makeFigure(ws);
     Visualizer::saveFigures(true, "hw4_figs");
 
+    HW4::checkCSpace(*cspace, manipulator, HW4::getEx3Workspace3(), 500, true);
+
     // Grade method
-    amp::HW4::grade<MyManipulator2D>(cspace_constructor, "nonhuman.biologic@myspace.edu", argc, argv);
+    // amp::HW4::grade<MyManipulator2D>(cspace_constructor, "nonhuman.biologic@myspace.edu", argc, argv);
     return 0;
 }

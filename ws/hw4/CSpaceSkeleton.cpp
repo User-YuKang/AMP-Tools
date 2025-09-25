@@ -20,22 +20,34 @@ std::unique_ptr<amp::GridCSpace2D> MyManipulatorCSConstructor::construct(const a
     MyGridCSpace2D& cspace = *cspace_ptr;
     double step = 2*M_PI/m_cells_per_dim;
     double half_step = step/2;
+    double critical = 0.01;
+    bool crash = false;
 
     // Determine if each cell is in collision or not, and store the values the cspace. This `()` operator comes from DenseArray base class
     for(int i = 0; i < m_cells_per_dim; i++){
-        for(int j = 0; j < m_cells_per_dim; j++){
-            Eigen::Vector2d state = Eigen::Vector2d(i*step+half_step, j*step+half_step);
-            Eigen::Vector2d end_effector= manipulator.getJointLocation(state, 2);
-            cspace(i,j) = check_collision(env, end_effector);
+        Eigen::Vector2d state = Eigen::Vector2d(i*step+half_step, 0);
+        Eigen::Vector2d joint1 = manipulator.getJointLocation(state, 1);
+        crash = check_collision(env,joint1);
+        if(!crash){
+            crash = check_collision_between_point(env, manipulator.getBaseLocation(), joint1, critical);
         }
+
+        for(int j = 0; j < m_cells_per_dim; j++){
+            if (crash){
+                cspace(i,j) = true;
+                continue;
+            }
+
+            state[1] = j*step+half_step;
+            Eigen::Vector2d end_effector = manipulator.getJointLocation(state, 2);
+            if (check_collision(env, end_effector)){
+                cspace(i,j) = true;
+                continue;
+            }
+            cspace(i,j) = check_collision_between_point(env, joint1, end_effector, critical);
+        }
+        crash = false;
     }
-    // cspace(1, 3) = true;
-    // cspace(3, 3) = true;
-    // cspace(0, 1) = true;
-    // cspace(1, 0) = true;
-    // cspace(2, 0) = true;
-    // cspace(3, 0) = true;
-    // cspace(4, 1) = true;
 
     // Returning the object of type std::unique_ptr<MyGridCSpace2D> can automatically cast it to a polymorphic base-class pointer of type std::unique_ptr<amp::GridCSpace2D>.
     // The reason why this works is not super important for our purposes, but if you are curious, look up polymorphism!
@@ -72,4 +84,21 @@ bool MyManipulatorCSConstructor::check_collision(const amp::Environment2D& env, 
         return true; // Point is inside this obstacle
     }
     return false; // Point is outside all polygons
+}
+
+bool MyManipulatorCSConstructor::check_collision_between_point(const amp::Environment2D& env, Eigen::Vector2d point1, Eigen::Vector2d point2, double critical){
+    Eigen::Vector2d first2second = point2 - point1;
+    double previous_step = first2second.norm();
+    double devide = 2;
+
+    while(previous_step > critical){
+        for(double k = 1; k < devide; k+=2){
+            if (check_collision(env, point1 + first2second*(k/devide))){
+                return true;
+            }
+        }
+        devide = devide*2;
+        previous_step = previous_step/2;
+    }
+    return false;
 }

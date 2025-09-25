@@ -28,6 +28,7 @@ class MyManipulatorCSConstructor : public amp::ManipulatorCSConstructor {
         virtual std::unique_ptr<amp::GridCSpace2D> construct(const amp::LinkManipulator2D& manipulator, const amp::Environment2D& env) override;
 
         bool check_collision(const amp::Environment2D& env, Eigen::Vector2d point);
+        bool check_collision_between_point(const amp::Environment2D& env, Eigen::Vector2d point1, Eigen::Vector2d point2, double critical);
 
     private:
         std::size_t m_cells_per_dim;
