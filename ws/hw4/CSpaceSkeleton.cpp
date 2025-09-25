@@ -3,8 +3,11 @@
 // Override this method for returning whether or not a point is in collision
 std::pair<std::size_t, std::size_t> MyGridCSpace2D::getCellFromPoint(double x0, double x1) const {
     // Implment your discretization procedure here, such that the point (x0, x1) lies within the returned cell
-    std::size_t cell_x = 0; // x index of cell
-    std::size_t cell_y = 0; // x index of cell
+    double step_x = (m_x0_bounds.second-m_x0_bounds.first)/size().first;
+    double step_y = (m_x1_bounds.second-m_x1_bounds.first)/size().second;
+
+    std::size_t cell_x = (int)((x0-m_x0_bounds.first)/step_x); // x index of cell
+    std::size_t cell_y = (int)((x1-m_x1_bounds.first)/step_y); // x index of cell
     return {cell_x, cell_y};
 }
 
@@ -16,7 +19,7 @@ std::unique_ptr<amp::GridCSpace2D> MyManipulatorCSConstructor::construct(const a
     // In order to use the pointer as a regular GridCSpace2D object, we can just create a reference
     // MyGridCSpace2D& cspace = *cspace_ptr;
 
-    std::unique_ptr<MyGridCSpace2D> cspace_ptr = std::make_unique<MyGridCSpace2D>(m_cells_per_dim, m_cells_per_dim, 0, 2*M_PI, 0, 2*M_PI);
+    std::unique_ptr<MyGridCSpace2D> cspace_ptr = std::make_unique<MyGridCSpace2D>(m_cells_per_dim, m_cells_per_dim, -M_PI, M_PI, -M_PI, M_PI);
     MyGridCSpace2D& cspace = *cspace_ptr;
     double step = 2*M_PI/m_cells_per_dim;
     double half_step = step/2;
@@ -25,7 +28,7 @@ std::unique_ptr<amp::GridCSpace2D> MyManipulatorCSConstructor::construct(const a
 
     // Determine if each cell is in collision or not, and store the values the cspace. This `()` operator comes from DenseArray base class
     for(int i = 0; i < m_cells_per_dim; i++){
-        Eigen::Vector2d state = Eigen::Vector2d(i*step+half_step, 0);
+        Eigen::Vector2d state = Eigen::Vector2d(i*step+half_step -M_PI, 0);
         Eigen::Vector2d joint1 = manipulator.getJointLocation(state, 1);
         crash = check_collision(env,joint1);
         if(!crash){
@@ -38,7 +41,7 @@ std::unique_ptr<amp::GridCSpace2D> MyManipulatorCSConstructor::construct(const a
                 continue;
             }
 
-            state[1] = j*step+half_step;
+            state[1] = j*step+half_step-M_PI;
             Eigen::Vector2d end_effector = manipulator.getJointLocation(state, 2);
             if (check_collision(env, end_effector)){
                 cspace(i,j) = true;

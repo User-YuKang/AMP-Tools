@@ -62,9 +62,9 @@ int main(int argc, char** argv) {
     Visualizer::makeFigure(ws);
     Visualizer::saveFigures(true, "hw4_figs");
 
-    HW4::checkCSpace(*cspace, manipulator, HW4::getEx3Workspace3(), 500, true);
+    // HW4::checkCSpace(*cspace, manipulator, HW4::getEx3Workspace3(), 500, true);
 
     // Grade method
-    // amp::HW4::grade<MyManipulator2D>(cspace_constructor, "nonhuman.biologic@myspace.edu", argc, argv);
+    amp::HW4::grade<MyManipulator2D>(cspace_constructor, "nonhuman.biologic@myspace.edu", argc, argv);
     return 0;
 }
