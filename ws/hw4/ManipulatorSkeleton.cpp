@@ -1,5 +1,30 @@
 #include "ManipulatorSkeleton.h"
 
+// Comparator function
+bool comp(int a, int b) {
+    return a > b;
+}
+
+double sum(std::vector<double> v){
+    double total=0;
+    for (int i = 0; i < v.size(); i++){
+        total += v[i];
+    }
+    return total;
+}
+
+double smallestAbsuluteOfSum(std::vector<double> v){
+    double smallest = 0;
+    for (int i = 0; i < v.size(); i++){
+        if (smallest < v[i]){
+            smallest = v[i] - smallest;
+        }
+        else{
+            smallest = smallest - v[i];
+        }
+    }
+    return smallest;
+}
 
 MyManipulator2D::MyManipulator2D()
     : LinkManipulator2D({1.0, 1.0}) // Default to a 2-link with all links of 1.0 length
@@ -37,7 +62,7 @@ Eigen::Vector2d MyManipulator2D::possibleJointLocation(double r1, double r2, dou
 
     // intersect with both inner outer
     if (intersect_outer_circle && intersect_inner_circle){
-        LOG("case 1");
+        // LOG("case 1");
         Eigen::Vector2d outer_intersect = circlesIntersect(getBaseLocation(), r2, end_effector_location, linklength);
         Eigen::Vector2d inner_intersect = circlesIntersect(getBaseLocation(), r1, end_effector_location, linklength);
         double theta = 0;
@@ -79,7 +104,7 @@ Eigen::Vector2d MyManipulator2D::possibleJointLocation(double r1, double r2, dou
     
     // only intersect with outer circle
     if (intersect_outer_circle){
-        LOG("case 2");
+        // LOG("case 2");
         Eigen::Vector2d end2base = (getBaseLocation() - end_effector_location).normalized();
         joint_location = end_effector_location + end2base*linklength;
         return joint_location;
@@ -87,20 +112,20 @@ Eigen::Vector2d MyManipulator2D::possibleJointLocation(double r1, double r2, dou
 
     // only intersect with inner circle
     if (intersect_inner_circle){
-        LOG("case 3");
+        // LOG("case 3");
         Eigen::Vector2d base2end = (end_effector_location-getBaseLocation()).normalized();
         joint_location = end_effector_location + base2end*linklength;
         return joint_location;
     }
     
     // case 1 that not work
-    if (end_base_distant<r1){
+    if (end_base_distant+linklength<r1){
         return joint_location;
     }
 
     // anything works
     if (end_base_distant<r2){
-        LOG("case 4");
+        // LOG("case 4");
         joint_location = end_effector_location - Eigen::Vector2d(linklength,0);
         return joint_location;
     }
@@ -164,116 +189,51 @@ amp::ManipulatorState MyManipulator2D::getConfigurationFromIK(const Eigen::Vecto
         double link2_or = getLinkLengths()[0] + getLinkLengths()[1];
         double link2_ir = abs(getLinkLengths()[0] - getLinkLengths()[1]);
 
-        double end_base_distant = (end_effector_location - getBaseLocation()).norm();
+        Eigen::Vector2d joint2_location = possibleJointLocation(link2_ir, link2_or, getLinkLengths()[2], end_effector_location);
+        Eigen::VectorXd first2Configuration = getConfiguration2link(joint2_location);
+        Eigen::Vector2d joint_2_end = joint2_location - end_effector_location;
 
-        bool intersect_outer_circle = ((end_base_distant <= link2_or + getLinkLengths()[2]) && (end_base_distant >= abs(link2_or - getLinkLengths()[2])));
-        bool intersect_inner_circle = ((end_base_distant <= link2_ir + getLinkLengths()[2]) && (end_base_distant >= abs(link2_ir - getLinkLengths()[2])));
+        double theta = atan2(-joint_2_end[1],-joint_2_end[0]);
 
-        // intersect with both inner outer
-        if (intersect_outer_circle && intersect_inner_circle){
-            LOG("case 1");
-            // LOG(link2_or);
-            // LOG(link2_ir);
-            Eigen::Vector2d outer_intersect = circlesIntersect(getBaseLocation(), link2_or, end_effector_location, getLinkLengths()[2]);
-            Eigen::Vector2d inner_intersect = circlesIntersect(getBaseLocation(), link2_ir, end_effector_location, getLinkLengths()[2]);
-            double theta = 0;
-            Eigen::Rotation2Dd rot;
+        joint_angles[0] = first2Configuration[0];
+        joint_angles[1] = first2Configuration[1];
+        joint_angles[2] = theta-first2Configuration[1]-first2Configuration[0];
+        goto end_function;
+  
+    } 
+    else {
+        joint_angles.resize(nLinks());
+        std::vector<double> temp_link_length = getLinkLengths();
+        Eigen::Vector2d current_end_effector = end_effector_location;
+        std::vector<double> theta;
+        double current_final_length;
+        int link_left = nLinks();
 
-            double angle_different_1 = abs(outer_intersect[0]-inner_intersect[0]);
-            double angle_different_2 = abs(outer_intersect[0]-inner_intersect[1]);
+        while(link_left > 2){
+            current_final_length = temp_link_length.back();
+            temp_link_length.pop_back(); 
+            std::vector<double> reorganize_link_length = temp_link_length;
+            sort(reorganize_link_length.begin(), reorganize_link_length.end(), comp);
 
-            bool angle_1_changed = false;
-            bool angle_2_changed = false;
+            double r1 = smallestAbsuluteOfSum(reorganize_link_length);
+            double r2 = sum(reorganize_link_length);
 
-            if(2*M_PI-angle_different_1 < angle_different_1){
-                angle_different_1 = 2*M_PI-angle_different_1;
-                angle_1_changed = true;
-            }
-            if(2*M_PI-angle_different_2 < angle_different_2){
-                angle_different_2 = 2*M_PI-angle_different_2;
-                angle_2_changed = true;
-            }
+            Eigen::Vector2d previous_joint_location = possibleJointLocation(r1, r2, current_final_length, current_end_effector);
+            Eigen::Vector2d joint_2_end = previous_joint_location - current_end_effector;
 
+            theta.push_back(atan2(-joint_2_end[1],-joint_2_end[0]));
 
-            if (angle_different_1 <= angle_different_2){
-                if (angle_1_changed){
-                    theta = -M_PI;
-                }
-                theta += (outer_intersect[0] + inner_intersect[0])/2 + M_PI;
-            }else{
-                if (angle_2_changed){
-                    theta = -M_PI;
-                }
-                theta += (outer_intersect[0] + inner_intersect[1])/2 + M_PI;
-            }
-            rot = Eigen::Rotation2Dd(theta);
-            
-            Eigen::Vector2d joint2Location = end_effector_location - rot*Eigen::Vector2d(getLinkLengths()[2],0);
-            Eigen::VectorXd first2Configuration = getConfiguration2link(joint2Location);
-
-            joint_angles[0] = first2Configuration[0];
-            joint_angles[1] = first2Configuration[1];
-            joint_angles[2] = theta - first2Configuration[0] - first2Configuration[1];
-            goto end_function;
-            // return joint_angles;
+            current_end_effector = previous_joint_location;
+            link_left = link_left - 1;
         }
-        
-        // only intersect with outer circle
-        if (intersect_outer_circle){
-            LOG("case 2");
-            Eigen::Vector2d end2base = (getBaseLocation() - end_effector_location).normalized();
-            Eigen::Vector2d joint2Location = end_effector_location + end2base*getLinkLengths()[2];
-            Eigen::VectorXd first2Configuration = getConfiguration2link(joint2Location);
+        Eigen::VectorXd first2Configuration = getConfiguration2link(current_end_effector);
 
-            double theta = atan2(-end2base[1],-end2base[0]);
-
-            joint_angles[0] = first2Configuration[0];
-            joint_angles[1] = first2Configuration[1];
-            joint_angles[2] = theta-first2Configuration[1]-first2Configuration[0];
-            goto end_function;
-            // return joint_angles;
+        joint_angles[0] = first2Configuration[0];
+        joint_angles[1] = first2Configuration[1];
+        for(int i = 2; i < nLinks(); i++){
+            joint_angles[i] = theta[nLinks()-1-i] - joint_angles.sum();
+            joint_angles[i] = joint_angles[i] - 2*M_PI*floor((joint_angles[i] + M_PI)/(2*M_PI));
         }
-
-        // only intersect with inner circle
-        if (intersect_inner_circle){
-            LOG("case 3");
-            Eigen::Vector2d base2end = (end_effector_location-getBaseLocation()).normalized();
-            Eigen::Vector2d joint2Location = end_effector_location + base2end*getLinkLengths()[2];
-            Eigen::VectorXd first2Configuration = getConfiguration2link(joint2Location);
-
-            double theta = atan2(-base2end[1],-base2end[0]);
-
-            joint_angles[0] = first2Configuration[0];
-            joint_angles[1] = first2Configuration[1];
-            joint_angles[2] = theta-first2Configuration[1]-first2Configuration[0];
-            goto end_function;
-            // return joint_angles;
-        }
-        
-        // case 1 that not work
-        if (end_base_distant+getLinkLengths()[2]<link2_ir){
-            return joint_angles;
-        }
-
-        // anything works
-        if (end_base_distant<link2_or){
-            LOG("case 4");
-            Eigen::Vector2d joint2Location = end_effector_location - Eigen::Vector2d(getLinkLengths()[2],0);
-            Eigen::VectorXd first2Configuration = getConfiguration2link(joint2Location);
-
-            joint_angles[0] = first2Configuration[0];
-            joint_angles[1] = first2Configuration[1];
-            joint_angles[2] = - first2Configuration[0] -first2Configuration[1];
-
-            goto end_function;
-            // return joint_angles;
-        }
-        LOG(end_base_distant);
-        LOG(link2_or);
-
-        return joint_angles;
-    } else {
-
         return joint_angles;
     }
 
