@@ -5,20 +5,24 @@
 
 // Include the correct homework header
 #include "hw/HW5.h"
+#include "tools/Usefull.h"
 
 class MyGDAlgorithm : public amp::GDAlgorithm {
 	public:
 		// Consider defining a class constructor to easily tune parameters, for example: 
-		MyGDAlgorithm(double d_star, double zetta, double Q_star, double eta) :
+		MyGDAlgorithm(double d_star, double zetta, double Q_star, double eta, int cells_per_unit) :
 			d_star(d_star),
 			zetta(zetta),
 			Q_star(Q_star),
-			eta(eta) {}
+			eta(eta),
+			cells_per_unit(cells_per_unit) {}
 
 		// Override this method to solve a given problem.
 		virtual amp::Path2D plan(const amp::Problem2D& problem) override;
+		amp::DenseArray2D<int> brush_fire_distance(const amp::Problem2D& problem);
 	private:
 		double d_star, zetta, Q_star, eta;
+		int cells_per_unit;
 		// Add additional member variables here...
 };
 
