@@ -2,6 +2,7 @@
 
 #include "tools/Obstacle.h"
 #include "tools/Environment.h"
+#include <chrono>
 
 class check_collision_problem{
     public:
@@ -44,12 +45,4 @@ inline bool check_collision_problem::thisObstacle(int ob_idx, Eigen::Vector2d po
     return true; // Point is inside this obstacle
 }
 
-inline bool checkTimeout(std::chrono::time_point<std::chrono::high_resolution_clock> t1, double time_allow) {
-    auto t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = t2 - t1;
-    double time_pass = elapsed.count();
-    if(time_pass>time_allow){
-        return true;
-    }
-    return false;
-}
+
