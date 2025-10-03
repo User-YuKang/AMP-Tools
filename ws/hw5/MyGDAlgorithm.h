@@ -7,6 +7,8 @@
 #include "hw/HW5.h"
 #include "tools/Usefull.h"
 #include <cmath>
+#include <chrono>
+#include <time.h>
 
 class MyGDAlgorithm : public amp::GDAlgorithm {
 	public:
@@ -23,6 +25,7 @@ class MyGDAlgorithm : public amp::GDAlgorithm {
 	private:
 		double d_star, zetta, Q_star, eta;
 		int cells_per_unit;
+		bool checkTimeout(const std::chrono::time_point<std::chrono::high_resolution_clock> t1, double time_allow);
 		// Add additional member variables here...
 };
 
@@ -51,7 +54,7 @@ class MyPotentialFunction : public amp::PotentialFunction2D {
 		int cells_per_unit;
 		const amp::Problem2D& problem;
 		std::vector<amp::DenseArray2D<int>> distant_arrays;
-		std::vector<amp::DenseArray2D<int>> gradient_arrays;
+		std::vector<amp::DenseArray2D<std::vector<int>>> gradient_arrays;
 
 		std::vector<amp::DenseArray2D<int>> brushFireIdividual();
 

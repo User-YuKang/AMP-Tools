@@ -2,18 +2,45 @@
 
 // Implement your plan method here, similar to HW2:
 amp::Path2D MyGDAlgorithm::plan(const amp::Problem2D& problem) {
+    INFO("start planning");
     amp::Path2D path;
     Eigen::Vector2d current_location;
     MyPotentialFunction potential_function(d_star,zetta,Q_star,eta,cells_per_unit,problem);
 
     path.waypoints.push_back(problem.q_init);
     current_location = problem.q_init;
+    srand(time(NULL));
+    int run = 0;
 
     // Start timer
-    auto t1 = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> t1;
+    rerun:
+    t1 = std::chrono::high_resolution_clock::now();
     while ((current_location-problem.q_goal).norm() > 0.25){
-        if (checkTimeout(t1, 1.0)){return path;} // Timeout
-        current_location = current_location - potential_function.getGradient(current_location)*0.05;
+        if (checkTimeout(t1, 0.01)){
+            if (run > 3){
+                DEBUG("run too long");
+                return path;
+            }
+            run += 1;
+            path.waypoints.clear();
+            path.waypoints.push_back(problem.q_init);
+            current_location = problem.q_init;
+            goto rerun;
+            
+        } // Timeout
+
+        Eigen::Vector2d step = (potential_function.getGradient(current_location)*0.01);
+
+        if(path.waypoints.size()%50 == 0){
+            current_location = current_location + Eigen::Vector2d(pow(-1,rand())*rand(),pow(-1,rand())*rand()).normalized()*0.01;
+        }
+        else if (step.norm() > 0.02){
+            current_location = current_location - step*0.02/step.norm();
+        }
+        else{
+            current_location = current_location - step;
+        }
         path.waypoints.push_back(current_location);
     }
 
@@ -92,7 +119,7 @@ std::vector<amp::DenseArray2D<int>> MyPotentialFunction::brushFireIdividual(){
     for(int ob_idx = 0; ob_idx < problem.obstacles.size(); ob_idx++){
         int changed_num_of_cells = 0;
         amp::DenseArray2D<int> distant_array(x_cells_num, y_cells_num);
-        amp::DenseArray2D<int> gradient_array(x_cells_num, y_cells_num);
+        amp::DenseArray2D<std::vector<int>> gradient_array(x_cells_num, y_cells_num);
 
         // find obstacle
         for(int i = 0; i < x_cells_num; i++){
@@ -112,6 +139,19 @@ std::vector<amp::DenseArray2D<int>> MyPotentialFunction::brushFireIdividual(){
                 }
             }
         }
+        if(changed_num_of_cells == 0){
+            for(int i =0; i < x_cells_num; i++){
+                for (int j = 0; j < y_cells_num; j++){
+                    distant_array(i,j) = d_star + 1;
+                }
+            }
+            distant_arrays.push_back(distant_array);
+            gradient_arrays.push_back(gradient_array);
+            continue;
+            std::string msg = "something wrong with obstacles " + std::to_string(ob_idx);
+            ERROR(msg);
+            // ERROR("sothings wrong, it say there is no obstacles");
+        }
 
         int current_distant = 2;
         while(changed_num_of_cells < num_of_cells){
@@ -125,8 +165,11 @@ std::vector<amp::DenseArray2D<int>> MyPotentialFunction::brushFireIdividual(){
                                 }
                                 if (distant_array(i+k, j+l) == 0){
                                     distant_array(i+k, j+l) = current_distant;
-                                    gradient_array(i+k, j+l) = (k+2) + (l+1)*3;
+                                    gradient_array(i+k, j+l).push_back((k+2) + (l+1)*3);
                                     changed_num_of_cells += 1;
+                                }
+                                else if(distant_array(i+k, j+l) == current_distant){
+                                    gradient_array(i+k, j+l).push_back((k+2) + (l+1)*3);
                                 }
                             }
                         }
@@ -181,6 +224,18 @@ Eigen::Vector2d MyPotentialFunction::repulsiveGradient(const Eigen::Vector2d& q)
     Eigen::Vector2d temp_repulsive_gradient = Eigen::Vector2d(0.0, 0.0);
     int i = floor((q[0]-problem.x_min)*cells_per_unit);
     int j = floor((q[1]-problem.y_min)*cells_per_unit);
+    if (i<0){
+        i = 0;
+    }
+    if (j<0){
+        j = 0;
+    }
+    if (i>=(problem.x_max-problem.x_min)*cells_per_unit){
+        i = (problem.x_max-problem.x_min)*cells_per_unit - 1;
+    }
+    if (j>=(problem.y_max-problem.y_min)*cells_per_unit){
+        j = (problem.y_max-problem.y_min)*cells_per_unit - 1;
+    }
 
     for (int ob_idx = 0; ob_idx < problem.obstacles.size(); ob_idx++){
         double distant_to_obstacle = distant_arrays[ob_idx](i, j);
@@ -188,7 +243,14 @@ Eigen::Vector2d MyPotentialFunction::repulsiveGradient(const Eigen::Vector2d& q)
             distant_to_obstacle = pow(10,-6);
         }
         if (distant_to_obstacle <= Q_star){
-            switch (gradient_arrays[ob_idx](i,j))
+            int temp;
+            if (gradient_arrays[ob_idx](i,j).size() == 0){
+                temp = 0;
+            }
+            else{
+                temp = gradient_arrays[ob_idx](i,j)[rand()%gradient_arrays[ob_idx](i,j).size()];
+            }
+            switch (temp)
             {
             case 0:
                 temp_repulsive_gradient = Eigen::Vector2d(0.0, 0.0);
@@ -238,7 +300,7 @@ Eigen::Vector2d MyPotentialFunction::repulsiveGradient(const Eigen::Vector2d& q)
                 break;
 
             default:
-                ERROR(gradient_arrays[ob_idx](i,j));
+                ERROR(temp);
                 ERROR("something wrong when building distant gradient");
                 break;
             }
@@ -248,4 +310,14 @@ Eigen::Vector2d MyPotentialFunction::repulsiveGradient(const Eigen::Vector2d& q)
         }
     }
     return repulsive_gradient;
+}
+
+bool MyGDAlgorithm::checkTimeout(const std::chrono::time_point<std::chrono::high_resolution_clock> t1, double time_allow) {
+    std::chrono::time_point<std::chrono::high_resolution_clock> t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = t2 - t1;
+    double time_pass = elapsed.count();
+    if(time_pass>time_allow){
+        return true;
+    }
+    return false;
 }
