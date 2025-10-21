@@ -2,16 +2,65 @@
 
 // This includes all of the necessary header files in the toolbox
 #include "AMPCore.h"
+#include "HelpfulClass.h"
+#include <time.h>
+#include <cmath>
+#include "MyAStar.h"
 
 // Include the correct homework headers
 #include "hw/HW7.h"
 
-class MyPRM : public amp::PRM2D {
+class MyGenericPRM {
     public:
-        virtual amp::Path2D plan(const amp::Problem2D& problem) override; 
+        MyGenericPRM(int num_nodes_, int k_neighbors_, double radius_, bool smooth_);
+        std::shared_ptr<amp::Graph<double>> getGraphPtr() { return graphPtr; }
+        std::map<amp::Node, Eigen::VectorXd> getNodes() { return nodes; }
+        void createGraph(BaseCollisionChecker<Eigen::VectorXd>& collision_checker_);
+        amp::Path planND(Eigen::VectorXd init_, Eigen::VectorXd goal_, BaseCollisionChecker<Eigen::VectorXd>& collision_checker_);
+
+    private:
+        std::shared_ptr<amp::Graph<double>> graphPtr = std::make_shared<amp::Graph<double>>();
+        std::map<amp::Node, Eigen::VectorXd> nodes;
+        std::unordered_map<amp::Node, double> findClosest(Eigen::VectorXd location, int num_of_closest_);
+        void connectClosest(amp::Node node_idx, BaseCollisionChecker<Eigen::VectorXd>& collision_checker_);
+        amp::Path smoothPath(amp::Path, BaseCollisionChecker<Eigen::VectorXd>& collision_checker_);
+        int num_nodes;
+        int k_neighbors;
+        double radius;
+        bool smooth = false;
+
 };
 
-class MyRRT : public amp::GoalBiasRRT2D {
+class MyPRM : public amp::PRM2D, public MyGenericPRM {
     public:
-        virtual amp::Path2D plan(const amp::Problem2D& problem) override; 
+        MyPRM(int num_nodes_, int k_neighbors_, double radius_, bool smooth_);
+        virtual amp::Path2D plan(const amp::Problem2D& problem_) override;
+
+        std::map<amp::Node, Eigen::Vector2d> getNodes2D();
+};
+
+class MyGenericRRT {
+    public:
+        MyGenericRRT(double bias_, int iteration_, double step_size_) : bias(bias_), iteration(iteration_), step_size(step_size_) {}
+        std::shared_ptr<amp::Graph<double>> getGraphPtr() { return graphPtr; }
+        std::map<amp::Node, Eigen::VectorXd> getNodes() { return nodes; }
+        amp::Path planND(Eigen::VectorXd init_, Eigen::VectorXd goal_, BaseCollisionChecker<Eigen::VectorXd>& collision_checker_);
+
+    private:
+        std::shared_ptr<amp::Graph<double>> graphPtr = std::make_shared<amp::Graph<double>>();
+        std::map<amp::Node, Eigen::VectorXd> nodes;
+        Eigen::VectorXd generatePoint(const std::vector<std::pair<double, double>>& bounds);
+        amp::Node closestPoint(const Eigen::VectorXd& point);
+        Eigen::VectorXd extendRRT(const Eigen::VectorXd& point, BaseCollisionChecker<Eigen::VectorXd>& collision_checker_);
+        double bias;
+        int iteration;
+        double step_size;
+};
+
+class MyRRT : public amp::GoalBiasRRT2D, public MyGenericRRT {
+    public:
+        MyRRT(double bias_, int iteration_, double step_size_) : MyGenericRRT(bias_, iteration_, step_size_) {}
+        virtual amp::Path2D plan(const amp::Problem2D& problem_) override; 
+
+        std::map<amp::Node, Eigen::Vector2d> getNodes2D();
 };

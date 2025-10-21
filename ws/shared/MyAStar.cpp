@@ -2,7 +2,7 @@
 
 // Implement the search method for the A* algorithm
 MyAStarAlgo::GraphSearchResult MyAStarAlgo::search(const amp::ShortestPathProblem& problem, const amp::SearchHeuristic& heuristic) {
-    std::cout << "Starting A* Graph Search: Init --> goal | " << problem.init_node << " --> " << problem.goal_node << std::endl;
+    // std::cout << "Starting A* Graph Search: Init --> goal | " << problem.init_node << " --> " << problem.goal_node << std::endl;
     
     std::unordered_map<amp::Node, std::pair<amp::Node, double>> open_set;
     open_set[problem.init_node] = std::pair<amp::Node, double>(-1,-1);
@@ -59,7 +59,6 @@ MyAStarAlgo::GraphSearchResult MyAStarAlgo::search(const amp::ShortestPathProble
     }
 
     // DEBUG("have result");
-    std::cout << std::endl;
     GraphSearchResult result = {success, {}, 0.0}; // initialize the results object
     result.node_path.push_back(problem.goal_node);
     if(success){
