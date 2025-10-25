@@ -11,13 +11,17 @@
 #include "MySamplingBasedPlanners.h" 
 
 
-class MyCentralPlanner : public amp::CentralizedMultiAgentRRT {
+class MyCentralPlanner : public amp::CentralizedMultiAgentRRT, public MyGenericRRT {
     public:
-        virtual amp::MultiAgentPath2D plan(const amp::MultiAgentProblem2D& problem) override; 
+        MyCentralPlanner(double r_, double bias_, int max_it_): MyGenericRRT(bias_, max_it_, r_) {}
+
+        virtual amp::MultiAgentPath2D plan(const amp::MultiAgentProblem2D& problem_) override; 
 };
 
 
-class MyDecentralPlanner : public amp::DecentralizedMultiAgentRRT {
+class MyDecentralPlanner : public amp::DecentralizedMultiAgentRRT, public MyGenericRRT {
     public:
-        virtual amp::MultiAgentPath2D plan(const amp::MultiAgentProblem2D& problem) override;
+        MyDecentralPlanner(double r_, double bias_, int max_it_): MyGenericRRT(bias_, max_it_, r_) {}
+
+        virtual amp::MultiAgentPath2D plan(const amp::MultiAgentProblem2D& problem_) override;
 };

@@ -1,5 +1,7 @@
 #include "AMPCore.h"
-#define GAP 0.005
+// #include <cmath>
+#define GAP 0.1
+#define GAPDECEN 0.1
 
 template <typename P>
 class BaseCollisionChecker {
@@ -14,7 +16,6 @@ class BaseCollisionChecker {
         std::vector<std::pair<double,double>> bounds;
 };
 
-
 class Point2DCollisionChecker : public BaseCollisionChecker<Eigen::VectorXd>{
     public:
         Point2DCollisionChecker(const amp::Environment2D& enviroument_);
@@ -26,6 +27,44 @@ class Point2DCollisionChecker : public BaseCollisionChecker<Eigen::VectorXd>{
 
     private:
         const amp::Environment2D& env;
+};
+
+class MultiAgentDisk2DCollisionChecker : public BaseCollisionChecker<Eigen::VectorXd>{
+    public:
+        MultiAgentDisk2DCollisionChecker(const amp::MultiAgentProblem2D& problem);
+
+        bool isCollide(const Eigen::VectorXd& point_) override;
+        bool isCollide2P(const Eigen::VectorXd& point1_, const Eigen::VectorXd& point2_) override;
+
+        bool thisObstacle(int ob_idx_, const Eigen::Vector2d& point_);
+
+    private:
+        void decompose(std::vector<Eigen::Vector2d>& robots_location, const Eigen::VectorXd& point_);
+        bool checkEachGap(Eigen::VectorXd point, int sec_num);
+
+        const amp::MultiAgentProblem2D& problem;
+        std::vector<double> robots_radius;
+};
+
+class MultiAgentDisk2DCollisionCheckerDecen : public BaseCollisionChecker<Eigen::VectorXd>{
+    public:
+        MultiAgentDisk2DCollisionCheckerDecen(const amp::MultiAgentProblem2D& problem, const amp::MultiAgentPath2D& exisiting_path);
+
+        bool isCollide(const Eigen::VectorXd& point_) override{return true;}
+        bool isCollideWithTime(const Eigen::VectorXd& point_, int time_step);
+        bool isCollide2P(const Eigen::VectorXd& point1_, const Eigen::VectorXd& point2_) override{return true;}
+        bool isCollide2PWithTime(const Eigen::VectorXd& point1_, const Eigen::VectorXd& point2_, int time_step);
+
+        bool thisObstacle(int ob_idx_, const Eigen::Vector2d& point_);
+
+    private:
+        void decompose(std::vector<Eigen::Vector2d>& robots_location, const Eigen::VectorXd& point_);
+
+        const amp::MultiAgentProblem2D& problem;
+        std::vector<double> robots_radius;
+        const amp::MultiAgentPath2D& exisiting_path;
+        int currect_agent;
+
 };
 
 template <typename T>
